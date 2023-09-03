@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 
-FPS = 30
+FPS = 10
 
 #Colors   R    G    B
 WHITE = (255, 255, 255)
@@ -41,9 +41,11 @@ response = requests.get(url)
 print(response.json())
 """
 
-
 def main():
     global WINDOWFACTOR, WINDOWWIDTH, WINDOWHEIGHT, WINDOWFACTOR, WW, WH, WF
+    click = False
+    mouseRelease = False
+
     mousex = 0
     mousey = 0
     DISPLAYSURF.fill(BGCOLOR)
@@ -53,8 +55,12 @@ def main():
     #testSquare = SquareButton(10, 10, 200, 100, text= "Hola mundo", textType = 1, textColor = GREEN, textSize= 30)
 
     while True:
+
+        mouseRelease = False
+
         #testSquare.selfDraw()
         for event in pygame.event.get():
+
             if event.type == 256:
                 pygame.quit()
                 sys.exit()
@@ -79,10 +85,14 @@ def main():
             elif event.type == MOUSEBUTTONUP:
                 click = False
                 mouseRelease = True
-            mouseRelease = False
-            print(event)
+            print(click, mouseRelease)
 
-        interface.checkHighlight(mousex, mousey)
+        if interface.checkHighlight(mousex, mousey, click, mouseRelease):
+            
+            interface = interface.changeInterface()
+            interface.getFigures()
+            DISPLAYSURF.fill(BGCOLOR)
+
         interface.selfDraw()
 
         pygame.display.update()
@@ -127,9 +137,18 @@ class Interface3(object):
     def checkHighlight(self, mousex,mousey, click, release):
         for i in range (len(self.objectList)):
             if self.objectList[i].collidePoint(mousex,mousey):
-                self.objectList[i].highlight = True
+                if click:
+                    pass
+                
+                elif release:
+                    pass
+                
+                else:
+                    self.objectList[i].highlight = True
             
             else: self.objectList[i].highlight = False
+
+    
 
 
 class Interface2(object):
@@ -207,11 +226,28 @@ class Interface1(object):
         for object in self.objectList:
             object.selfDraw()
 
-    def checkHighlight(self, mousex,mousey):
+    def checkHighlight(self, mousex,mousey, click, release):
         for i in range (len(self.objectList)):
             if self.objectList[i].collidePoint(mousex,mousey):
-                self.objectList[i].highlight = True
-            else: self.objectList[i].highlight = False
+                if click:
+                    self.objectList[i].press = True
+                
+                elif release:
+                    self.i = i
+                    return True
+                
+                else:
+                    self.objectList[i].highlight = True
+            
+            else: 
+                self.objectList[i].highlight = False
+                self.objectList[i].press = False
+    
+    def changeInterface(self):
+        if self.i != 0:
+            interface = Interface3(WINDOWFACTOR)
+            return interface
+
 
 class SquareButton(object):
     def __init__(self, x, y, width, height, text=None, color=WHITE, textSize=20, textType=None, textColor=BLACK):
