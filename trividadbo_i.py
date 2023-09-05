@@ -1,6 +1,6 @@
-import plotly.express as px
-data = dict(
-    number=[39, 27.4, 20.6, 11, 2],
-    stage=["Website visit", "Downloads", "Potential customers", "Requested price", "invoice sent"])
-fig = px.funnel(data, x='number', y='stage')
-fig.show()
+name = 'Octavio'
+score = 5
+
+
+struing = "Name = {0:20} Score = {1}".format(name, score)
+print (struing)
