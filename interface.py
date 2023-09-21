@@ -8,7 +8,11 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 
-from requests_funcionalidad import GameEngine\
+from requests_funcionalidad import GameEngine
+GameEngine = GameEngine()
+
+import webbrowser
+
 
 FPS = 20
 
@@ -44,7 +48,7 @@ print(response.json())
 """
 
 def main():
-    global WINDOWFACTOR, WINDOWWIDTH, WINDOWHEIGHT, WINDOWFACTOR, WW, WH, WF
+    global WINDOWFACTOR, WINDOWWIDTH, WINDOWHEIGHT, WINDOWFACTOR, WW, WH, WF, interface
     click = False
     mouseRelease = False
 
@@ -73,8 +77,6 @@ def main():
                 WW =  WINDOWWIDTH
                 WH = WINDOWHEIGHT
                 WF = WINDOWFACTOR
-                del interface
-                interface = Interface2(WINDOWFACTOR)
                 interface.getFigures()
 
             elif event.type == MOUSEMOTION:
@@ -86,20 +88,22 @@ def main():
             elif event.type == MOUSEBUTTONUP:
                 click = False
                 mouseRelease = True
-            print(click, mouseRelease)
+            #print(click, mouseRelease)
 
         if interface.checkHighlight(mousex, mousey, click, mouseRelease):
-            clickActions(interface.clickAction())
-
+            code = clickActions(interface.clickAction())
+            eval(str(code))
         interface.selfDraw()
 
         pygame.display.update()
         FPSCLOCK.tick(FPS)
 
 def clickActions(clickAction):
+    global interface
     match clickAction:
         case 'changeInterface':
-            interface = interface.changeInterface()
+            newInterface = interface.newInterface
+            interface = newInterface
             interface.getFigures()
             DISPLAYSURF.fill(BGCOLOR)
         case 'quit':
@@ -108,40 +112,38 @@ def clickActions(clickAction):
             openGithub()
         case 'reset':
             resetLeaderboard()
+        case 'startGame':
+            question_temp = GameEngine.nextQuestion()
 
-def terminate():
-    pygame.quit()
-    sys.exit()
+            if len(question_temp['options']) == 4:
+                interface = Interface2(WINDOWFACTOR, question_temp['options'], question_temp['question'])
+            else:
+                interface = Interface3(WINDOWFACTOR, question_temp['question'], question_temp['options'])
+            interface.getFigures()
+            DISPLAYSURF.fill(BGCOLOR)
 
-def startGame():
-    # aquí va a haber mucha sangre
-    pass
+        case 'checkAnswer':
+            GameEngine.checkAnswer(interface.answer)
+            question_temp = GameEngine.nextQuestion()
+            if len(question_temp['options']) == 4:
+                interface = Interface2(WINDOWFACTOR, question_temp['options'], question_temp['question'])
+            else:
+                interface = Interface3(WINDOWFACTOR, question_temp['question'], question_temp['options'])
+            interface.getFigures()
+            DISPLAYSURF.fill(BGCOLOR)
 
-def getLeaderboard():
-    #Aqu[i] tambi[en habr[a demasiada sangre]]
-    pass
-
-def resetLeaderboard():
-    #Poca sangre
-    pass
-
-def openGithub():
-    # tambi[en poca violencia en esta funci[on]
-    pass
+    
 
 class Interface1(object):
     #Interfaz de bienvenida
     def __init__(self, WINDOWFACTOR):
+        self.question10Bool = True
         self.textColor = WHITE
         self.objectList = []
         self.questionsColors = [200,0,150]
         self.fontSize = int(WINDOWFACTOR *2.5)
-        self.actionDict = {0: 'changeInterface', 1:False, 2:False, 3:'changeInterface', 4:'reset', 5:'openGithub', 6:'quit'}
-
+        
         self.font = pygame.font.Font("REM-VariableFont_wght.ttf", self.fontSize)
-
-    def getAction(self):
-        return self.actionDict[self.i]
 
     def getFigures(self):
         # INTRODUCTION TEXT
@@ -183,11 +185,14 @@ class Interface1(object):
                     elif self.i == 1:
                         self.question15.changeColor(WHITE)
                         self.question10.changeColor(self.questionsColors)
+                        self.question10Bool = True
                         return False
                     
                     elif self.i == 2:
                         self.question15.changeColor(self.questionsColors)
                         self.question10.changeColor(WHITE)
+                        self.question10Bool = False
+
                         return False
                     
                 else:
@@ -196,29 +201,80 @@ class Interface1(object):
                 self.objectList[i].highlight = False
                 self.objectList[i].press = False
     
-    def changeInterface(self):
+    def clickAction(self):
         if self.i == 0:
-            interface = Interface2(WINDOWFACTOR)
-            startGame()
-            return interface
+            if self.question10Bool:
+                GameEngine.startGame(10)
+            else:
+                GameEngine.startGame(15)
+
+            
+            
+            return 'startGame'
         
         elif self.i == 3:
-            interface = Interface4(WINDOWFACTOR) # Interface que aun no se hace para visualizar tablero
+            self.newInterface = Interface4(WINDOWFACTOR) # Interface que aun no se hace para visualizar tablero
             getLeaderboard()
+            return 'changeInterface'
         
         elif self.i == 4:
-            restartLeaderboard()
+            resetLeaderboard()
 
         elif self.i ==5:
-            abrirGithub()
+            openGithub()
         
         elif self.i ==6:
             terminate()
 
+class Interface2(object):
+    # Preguntas de opcion multiple
+    def __init__(self, WINDOWFACTOR, question, options):
+        self.question = str(question)
+        self.options = options
+        self.textColor = WHITE
+        self.objectList = []
+        self.fontSize = int(WW /15)
+        self.smallerFontSize =  int(WW/25)
+
+        self.font = pygame.font.Font("REM-VariableFont_wght.ttf", self.fontSize)
+        self.smallerFont = pygame.font.Font("REM-VariableFont_wght.ttf", self.smallerFontSize)
+
+    def getFigures(self):
+        # INTRODUCTION TEXT
+        self.presentText = self.font.render("Estás jugando a 10 preguntas!", True, self.textColor, BGCOLOR)
+        self.presentText_r = self.presentText.get_rect()
+        self.presentText_r.center = (WW/2, WH/8)
+
+        self.questionText = self.smallerFont.render(self.question, True, self.textColor, BGCOLOR)
+        self.questionText_r = self.questionText.get_rect()
+        self.questionText_r.center = (WW/2, WH/4)
+        
+        self.question1 = SquareButton(WW/12       , WH/3    , (WW/3)+2*WF, (WH/4.5), text= "Jugar1", textType = 1, textColor = GREEN, textSize= WF)
+        self.question2 = SquareButton(WW/12 + WW/2 - 2*WF, WH/3    , (WW/3)+2*WF, (WH/4.5), text= "Jugar2", textType = 1, textColor = GREEN, textSize= WF)
+        self.question3 = SquareButton(WW/12       , (2*WH/3.5), (WW/3)+2*WF, (WH/4.5), text= "Jugar3", textType = 1, textColor = GREEN, textSize= WF)
+        self.question4 = SquareButton(WW/12 + WW/2 - 2*WF, (2*WH/3.5), (WW/3)+2*WF, (WH/4.5), text= "Jugar4", textType = 1, textColor = GREEN, textSize= WF)
+        
+        self.quit = SquareButton((2*WW/3), 4*WH/5, (WW/3)-WINDOWFACTOR, (WH/6)-6, text= "Salir", color = RED, textType = 1, textColor = GREEN, textSize= WINDOWFACTOR)
+
+        self.objectList = [self.question1, self.question2, self.question3, self.question4, self.quit]
+
+    def selfDraw(self):
+        DISPLAYSURF.blit (self.presentText, self.presentText_r)
+        DISPLAYSURF.blit (self.questionText, self.questionText_r)
+
+        for object in self.objectList:
+            object.selfDraw()
+
+    def checkHighlight(self, mousex,mousey, click, release):
+        for i in range (len(self.objectList)):
+            if self.objectList[i].collidePoint(mousex,mousey):
+                self.objectList[i].highlight = True
+            else: self.objectList[i].highlight = False
+
 
 class Interface3(object):
     #Preguntas de true/false
-    def __init__(self, WINDOWFACTOR):
+    def __init__(self, WINDOWFACTOR, question, options):
         self.textColor = WHITE
         self.objectList = []
         self.fontSize = int(WW /15)
@@ -256,63 +312,34 @@ class Interface3(object):
         for i in range (len(self.objectList)):
             if self.objectList[i].collidePoint(mousex,mousey):
                 if click:
-                    pass
-                
+                    self.objectList[i].press = True
+
                 elif release:
-                    pass
-                
+                    self.i = i
+                    if self.i not in [1,2]:
+                        return True
+                    
+                    elif self.i == 1:
+                        self.question15.changeColor(WHITE)
+                        self.question10.changeColor(self.questionsColors)
+                        return False
+                    
+                    elif self.i == 2:
+                        self.question15.changeColor(self.questionsColors)
+                        self.question10.changeColor(WHITE)
+                        return False
+                    
                 else:
                     self.objectList[i].highlight = True
-            
-            else: self.objectList[i].highlight = False
-
-class Interface2(object):
-    # Preguntas de opcion multiple
-    def __init__(self, WINDOWFACTOR):
-        self.textColor = WHITE
-        self.objectList = []
-        self.fontSize = int(WW /15)
-        self.smallerFontSize =  int(WW/25)
-
-        self.font = pygame.font.Font("REM-VariableFont_wght.ttf", self.fontSize)
-        self.smallerFont = pygame.font.Font("REM-VariableFont_wght.ttf", self.smallerFontSize)
-
-    def getFigures(self):
-        # INTRODUCTION TEXT
-        self.presentText = self.font.render("Estás jugando a 10 preguntas!", True, self.textColor, BGCOLOR)
-        self.presentText_r = self.presentText.get_rect()
-        self.presentText_r.center = (WW/2, WH/8)
-
-        self.questionText = self.smallerFont.render("1. Puedes leer esto?", True, self.textColor, BGCOLOR)
-        self.questionText_r = self.questionText.get_rect()
-        self.questionText_r.center = (WW/2, WH/4)
-        
-        self.question1 = SquareButton(WW/12       , WH/3    , (WW/3)+2*WF, (WH/4.5), text= "Jugar1", textType = 1, textColor = GREEN, textSize= WF)
-        self.question2 = SquareButton(WW/12 + WW/2 - 2*WF, WH/3    , (WW/3)+2*WF, (WH/4.5), text= "Jugar2", textType = 1, textColor = GREEN, textSize= WF)
-        self.question3 = SquareButton(WW/12       , (2*WH/3.5), (WW/3)+2*WF, (WH/4.5), text= "Jugar3", textType = 1, textColor = GREEN, textSize= WF)
-        self.question4 = SquareButton(WW/12 + WW/2 - 2*WF, (2*WH/3.5), (WW/3)+2*WF, (WH/4.5), text= "Jugar4", textType = 1, textColor = GREEN, textSize= WF)
-        
-        self.quit = SquareButton((2*WW/3), 4*WH/5, (WW/3)-WINDOWFACTOR, (WH/6)-6, text= "Salir", color = RED, textType = 1, textColor = GREEN, textSize= WINDOWFACTOR)
-
-        self.objectList = [self.question1, self.question2, self.question3, self.question4, self.quit]
-
-    def selfDraw(self):
-        DISPLAYSURF.blit (self.presentText, self.presentText_r)
-        DISPLAYSURF.blit (self.questionText, self.questionText_r)
-
-        for object in self.objectList:
-            object.selfDraw()
-
-    def checkHighlight(self, mousex,mousey):
-        for i in range (len(self.objectList)):
-            if self.objectList[i].collidePoint(mousex,mousey):
-                self.objectList[i].highlight = True
-            else: self.objectList[i].highlight = False
+            else: 
+                self.objectList[i].highlight = False
+                self.objectList[i].press = False
 
 class Interface4(object):
-    # Preguntas de opcion multiple
+    # Marcadores
     def __init__(self, WINDOWFACTOR):
         self.textColor = WHITE
+        self.bgColor = BLUE
         self.squareColor = [200,240,240]
 
         self.objectList = []
@@ -321,44 +348,98 @@ class Interface4(object):
 
         self.font = pygame.font.Font("REM-VariableFont_wght.ttf", self.fontSize)
         self.smallerFont = pygame.font.Font("REM-VariableFont_wght.ttf", self.smallerFontSize)
+        self.actionDict = {0: False, 1:False, 2:'changeInterface', 3:'quit'}
 
+
+    def getAction(self):
+        return self.actionDict[self.i]
+    
     def getFigures(self):
-        # INTRODUCTION TEXT
-        self.presentText = self.font.render("Estás jugando a 10 preguntas!", True, self.textColor, BGCOLOR)
-        self.presentText_r = self.presentText.get_rect()
-        self.presentText_r.center = (WW/2, WH/8)
+        self.fontSize = int(WW /15)
+        self.smallerFontSize =  int(WW/25)
+        self.font = pygame.font.Font("REM-VariableFont_wght.ttf", self.fontSize)
+        self.smallerFont = pygame.font.Font("REM-VariableFont_wght.ttf", self.smallerFontSize)
 
-        self.questionText = self.smallerFont.render("1. Puedes leer esto?", True, self.textColor, BGCOLOR)
-        self.questionText_r = self.questionText.get_rect()
-        self.questionText_r.center = (WW/2, WH/4)
+        # INTRODUCTION TEXT
+        self.leaderboardText = TextObj(WW/2, WH/6, text= "Leaderboard")
+        self.q10Text = TextObj(WW/4, WH/5, text = "10 questions")
+        self.q15Text = TextObj(3*WW/4, WH/5, text = "15 questions")
+
+        self.leaderboardQ10 = SquareButton(WW/20, WH/4, (4*WW)/10, WH/2)
+        self.leaderboardQ15 = SquareButton(WW-WW/20-(4*WW/10), WH/4, (4*WW)/10, WH/2)
         
-        self.question1 = SquareButton(WW/12       , WH/3    , (WW/3)+2*WF, (WH/4.5), text= "Jugar1", textType = 1, textColor = GREEN, textSize= WF)
-        self.question2 = SquareButton(WW/12 + WW/2 - 2*WF, WH/3    , (WW/3)+2*WF, (WH/4.5), text= "Jugar2", textType = 1, textColor = GREEN, textSize= WF)
-        self.question3 = SquareButton(WW/12       , (2*WH/3.5), (WW/3)+2*WF, (WH/4.5), text= "Jugar3", textType = 1, textColor = GREEN, textSize= WF)
-        self.question4 = SquareButton(WW/12 + WW/2 - 2*WF, (2*WH/3.5), (WW/3)+2*WF, (WH/4.5), text= "Jugar4", textType = 1, textColor = GREEN, textSize= WF)
-        
+        self.back = SquareButton((1*WW/3), 4*WH/5, (WW/3)-WINDOWFACTOR, (WH/6)-6, text= "Volver", textType = 1, textColor = GREEN, textSize= WINDOWFACTOR)
         self.quit = SquareButton((2*WW/3), 4*WH/5, (WW/3)-WINDOWFACTOR, (WH/6)-6, text= "Salir", color = RED, textType = 1, textColor = GREEN, textSize= WINDOWFACTOR)
 
-        self.objectList = [self.question1, self.question2, self.question3, self.question4, self.quit]
+        self.Q10_1 = TextObj(WW/4 , WH/3, text = "1:       Name = {0:15} Score = {1}/10".format('Octavio', 9), color = BLACK,  BGCOLOR =  [240,240,240])
+        self.Q10_2 = TextObj(WW/4 - 5*WW/20 + WW/15, WH/3+WH/8, '2:')
+        self.Q10_3 = TextObj(WW/4 - 5*WW/20 + WW/15, WH/3+2*WH/8, '3:')
+        self.Q10_4 = TextObj(WW/4 - 5*WW/20 + WW/15, WH/3+3*WH/8, '4:')
+        
+        # Textos
+        self.Q10_arr = [self.Q10_1, self.Q10_2, self.Q10_3, self.Q10_4]
+
+        self.objectList = [self.leaderboardQ10, self.leaderboardQ15, self.back, self.quit]
+        self.textList = [self.leaderboardText, self.q10Text, self.q15Text] + self.Q10_arr
 
     def selfDraw(self):
-        DISPLAYSURF.blit (self.presentText, self.presentText_r)
-        DISPLAYSURF.blit (self.questionText, self.questionText_r)
-
         for object in self.objectList:
             object.selfDraw()
 
-    def checkHighlight(self, mousex,mousey):
-        for i in range (len(self.objectList)):
-            if self.objectList[i].collidePoint(mousex,mousey):
-                self.objectList[i].highlight = True
-            else: self.objectList[i].highlight = False
+        for object in self.textList:
+            object.selfDraw()
+        
 
+    def checkHighlight(self, mousex,mousey,click,release):
+        for i in range (2,len(self.objectList)):
+            if self.objectList[i].collidePoint(mousex,mousey):
+                if click:
+                    self.objectList[i].press = True
+
+                elif release:
+                    self.i = i
+                    if self.i not in [0,1]:
+                        return True
+                    return True
+                    
+                else:
+                    self.objectList[i].highlight = True
+            else: 
+                self.objectList[i].highlight = False
+                self.objectList[i].press = False
+
+    def clickAction(self):
+        if self.i == 2:
+            self.newInterface = Interface1(WINDOWFACTOR)
+            return 'changeInterface'
+        
+        elif self.i == 3:
+            terminate()
+
+class TextObj(object):
+    def __init__(self, x, y, text=None, color=[240,240,240], size=20, font = False, BGCOLOR = BGCOLOR):
+        if not font:
+            self.font = pygame.font.Font("REM-VariableFont_wght.ttf", size)
+            self.text = self.font.render(text, True, color, BGCOLOR)
+        else: 
+            self.text = font.render(text, True, color, BGCOLOR)
+        self.text_rect = self.text.get_rect()
+        self.text_rect.center = (x,y)
+
+
+    def selfDraw(self):
+        DISPLAYSURF.blit (self.text, self.text_rect)
 
 class SquareButton(object):
-    def __init__(self, x, y, width, height, text=None, color=[240,240,240], textSize=20, textType=None, textColor=BLACK):
-        self.x = x
-        self.y = y
+    def __init__(self, x, y, width, height, text=None, color=[240,240,240], textSize=20, textType=None, textColor=BLACK, center = False):
+        
+        if center:
+            self.x = x - 0.5*width
+            self.y = y - 0.5*height
+        else:
+            self.x = x
+            self.y = y
+        
         self.width = width
         self.height = height
         self.text = text
@@ -400,7 +481,7 @@ class SquareButton(object):
                 elif self.textType ==2:
                     self.squareText = self.font.render(self.text, True, self.textColor, self.pressColor)
                     self.squareText_r = self.squareText.get_rect()
-                    self.squareText_r.center = (self.x+self.height/2, self.y+self.width/2)
+                    self.squareText_r.center = (self.x+self.width/2, self.y+self.height/2)
                     DISPLAYSURF.blit (self.squareText, self.squareText_r)
 
         elif self.highlight:
@@ -416,7 +497,7 @@ class SquareButton(object):
                 elif self.textType ==2:
                     self.squareText = self.font.render(self.text, True, self.textColor, self.highlightcolor)
                     self.squareText_r = self.squareText.get_rect()
-                    self.squareText_r.center = (self.x+self.height/2, self.y+self.width/2)
+                    self.squareText_r.center = (self.x+self.width/2, self.y+self.height/2)
                     DISPLAYSURF.blit (self.squareText, self.squareText_r)
 
         else:
@@ -432,7 +513,7 @@ class SquareButton(object):
                 elif self.textType ==2:
                     self.squareText = self.font.render(self.text, True, self.textColor, self.color)
                     self.squareText_r = self.squareText.get_rect()
-                    self.squareText_r.center = (self.x+self.height/2, self.y+self.width/2)
+                    self.squareText_r.center = (self.x+self.width/2, self.y+self.height/2)
                     DISPLAYSURF.blit (self.squareText, self.squareText_r)
 
     def changeText(self, text:str):
@@ -453,6 +534,23 @@ class SquareButton(object):
     def collidePoint(self, mousex, mousey):
         if mousex > self.x and mousex < self.x+self.width and mousey > self.y and mousey < self.y+ self.height:
             return True
+
+def terminate():
+    pygame.quit()
+    sys.exit()
+
+def getLeaderboard():
+    #Aqu[i] tambi[en habr[a demasiada sangre]]
+    pass
+
+def resetLeaderboard():
+    #Poca sangre
+    pass
+
+def openGithub():
+    # tambi[en poca violencia en esta funci[on]
+    webbrowser.open("https://github.com/Octavioweb/Trivia-Game")
+
 
 if __name__ == '__main__':
     main()

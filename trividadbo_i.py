@@ -1,5 +1,6 @@
-def func(a):
-    return True
-
-if b = func(a):
-    print('a')
+lista = []
+val = 16
+for n in range(9):
+    lista.append(str((val, val+4)))
+    val +=4
+print(lista)
