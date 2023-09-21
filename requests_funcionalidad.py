@@ -3,20 +3,32 @@ import requests, random
 class GameEngine(object):
     def __init__(self):
         self.correct_answers = 0
-        print("""Bienvenido a este juego de trivia""")
+        print("""
+        
+        
+              
+              Bienvenido a este juego de trivia
+              
+              
+              """)
 
     def startGame(self, gameMode):
         self.numPreguntas = gameMode
         self.url = f"https://opentdb.com/api.php?amount={self.numPreguntas}&difficulty=easy&encode=url3986"
 
-        self.response = self.requests.get(self.url)
+        self.response = requests.get(self.url)
         #response.encoding = 'ISO-8859-1'
         self.response_json = self.response.json()
         self.questionIndex = -1
         print(self.response_json)
 
     def nextQuestion(self):
+
         self.questionIndex +=1
+
+        if self.questionIndex > self.numPreguntas:
+            return False
+
         self.question_json = self.response_json['results'][self.questionIndex]
         self.question_decode = requests.utils.unquote(self.question_json['question'])
 
@@ -24,7 +36,8 @@ class GameEngine(object):
         self.correct_index = random.randint(0,len(self.opciones))
         self.opciones.insert(self.correct_index, str(self.question_json['correct_answer']))
 
-        return {'opciones': self.opciones}
+
+        return {'question':self.question_decode,'options': self.opciones}
     
     def checkAnswer(self, answer):
         if answer == self.correct_index:
