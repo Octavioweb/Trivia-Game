@@ -1,0 +1,6 @@
+pygame
+sqlalchemy
+requests
+random
+time
+webbrowser
